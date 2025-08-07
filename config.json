@@ -84,7 +84,6 @@
       "ok网": {
       "api": "https://www.okzy.tv/api.php/provide/vod/",
       "name": "OK资源网"
-      "key": "okzy",
     },
     "xiaomaomi": {
       "api": "https://zy.xmm.hk/api.php/provide/vod",
