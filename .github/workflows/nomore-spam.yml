@@ -3,31 +3,62 @@ name: NoMore Spam
 on:
   issues:
     types: [opened]
-  pull_request:
+  pull_request_target:
     types: [opened]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
-  models: read
-  actions: write
+
+concurrency:
+  group: nomore-spam-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   spam-detection:
+    name: Detect and remove spam
     runs-on: ubuntu-latest
-    name: NoMore Spam
-    
+    timeout-minutes: 5
+
+    if: >
+      github.event.sender.type == 'User'
+
+    permissions:
+      issues: write
+      pull-requests: write
+
     steps:
-      - name: Fuck All the Shit
-        uses: JohnsonRan/nomore-spam@main
+      - name: Detect and Remove Spam
+        uses: JohnsonRan/nomore-spam@e2c1f6f3f5e5c7b1b9e2a3d4c6f7a8b9c0d1e2f3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@main
+
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "## 🧼 Spam Detection Summary"
+            echo "- Event: ${{ github.event_name }}"
+            echo "- Actor: ${{ github.actor }}"
+            echo "- Target: ${{ github.event.issue.number || github.event.pull_request.number }}"
+            echo "- [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Cleanup workflow runs
+    runs-on: ubuntu-latest
+    needs: spam-detection
+    timeout-minutes: 5
+    if: always()
+
+    permissions:
+      actions: write
+
+    steps:
+      - name: Delete Workflow Runs
+        uses: Mattraks/delete-workflow-runs@f4d3c2b1a0e9d8c7b6a5e4d3c2b1a0f9e8d7c6b5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 2
+          retain_days: 7
+          keep_minimum_runs: 5
